@@ -1,5 +1,7 @@
 const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL;
-
+if (!WP_URL) {
+  throw new Error("Missing env var: NEXT_PUBLIC_WORDPRESS_API_URL");
+}
 type FetchArgs = {
   query: string;
   variables?: Record<string, unknown>;
@@ -22,7 +24,7 @@ export async function wpFetch<T>({
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const res = await fetch(WP_URL, {
+      const res = await fetch(WP_URL!, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, variables }),
@@ -47,11 +49,12 @@ export async function wpFetch<T>({
         throw new Error("WPGraphQL returned errors");
       }
       return json.data as T;
-    } catch (e: any) {
-      lastError = e;
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      lastError = error;
       console.warn(
         `WP fetch attempt ${attempt}/${MAX_ATTEMPTS} failed:`,
-        e.message,
+        error.message,
       );
       if (attempt < MAX_ATTEMPTS) {
         await sleep(2000 * attempt); // 2s, 4s, then give up
